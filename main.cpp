@@ -1,235 +1,149 @@
-/* Дано число N < 106 и последовательность пар целых чисел из [-231, 231] длиной N.
- * Построить декартово дерево из N узлов, характеризующихся парами чисел (Xi, Yi).
- * Каждая пара чисел (Xi, Yi) определяет ключ Xi и приоритет Yi в декартовом дереве.
- * Добавление узла в декартово дерево выполняйте следующим образом:
- * При добавлении узла (x, y) выполняйте спуск по ключу до узла P с меньшим приоритетом.
- * Затем разбейте найденное поддерево по ключу x так, чтобы в первом поддереве все ключи меньше x, а во втором больше или равны x.
- * Получившиеся два дерева сделайте дочерними для нового узла (x, y). Новый узел вставьте на место узла P.
- * Построить также наивное дерево поиска по ключам Xi.
- * Т.е., при добавлении очередного числа K в наивное дерево с корнем root, если root→Key ≤ K,
- * то узел K добавляется в правое поддерево root; иначе в левое поддерево root.
- * Вычислить разницу глубин наивного дерева поиска и декартового дерева.
- * Разница может быть отрицательна, необходимо вывести модуль разности.*/
+/*Реализуйте структуру данных типа “множество строк” на основе динамической хеш-таблицы с открытой адресацией.
+ * Хранимые строки непустые и состоят из строчных латинских букв.
+ * Хеш-функция строки должна быть реализована с помощью вычисления значения многочлена методом Горнера.
+ * Начальный размер таблицы должен быть равным 8-ми. Перехеширование выполняйте
+ * при добавлении элементов в случае, когда
+ * коэффициент заполнения таблицы достигает 3/4.
+ * Структура данных должна поддерживать операции добавления строки в множество, удаления
+ * строки из множества и проверки принадлежности данной строки множеству.
+ * Вариант 1. Для разрешения коллизий используйте квадратичное пробирование.
+ * i-ая проба g(k, i)=g(k, i-1) + i (mod m). m - степень двойки.*/
 
-//https://contest.yandex.ru/contest/43508/run-report/80024323/
+//https://contest.yandex.ru/contest/43508/run-report/80025461/
 
 #include <iostream>
+#include <string>
 #include <vector>
 
-struct Node {
-    ~Node();
-
-    int Data;
-    Node* Left = nullptr;
-    Node* Right = nullptr;
-    Node* Parent = nullptr;
-
-    explicit Node(int data, Node* parent = nullptr) : Data(data), Parent(parent) {}
-};
-
-Node::~Node() {
-    delete Left;
-    delete Right;
-}
-
-class Tree {
+class String_Hash {
+    const int a = 50;
 public:
-    ~Tree();
-    void Add(int key);
-    // Возвращает true, если успешно удалили
-    bool Remove(int key);
-    int GetDepth() const;
-    void Print() const;
-
-private:
-    Node* root = nullptr;
-
-    int GetDepth(Node* node) const;
-    void Print(Node* node, int tabs) const;
+    int operator()(const std::string& key, int maxValue) const {
+        int hash = 0;
+        for(const char& c : key) {
+            hash = (hash * a + c) % maxValue;
+        }
+        return hash;
+    }
 };
 
-Tree::~Tree() {
-    delete root;
+template<class T, class Hash = std::hash<T>, class Equality = std::equal_to<T>>
+
+class HashTable {
+public:
+    bool Has(const T& key);
+    bool Add(const T& key);
+    bool Del(const T& key);
+    HashTable(): size(0), power(8), loadFactor(0.75), table(power, nullptr), text(new Node("")) {}
+    ~HashTable() {
+        for (int i = 0; i < power; ++i) {
+            if (table[i] != nullptr && table[i] != text)
+                delete table[i] ;
+        }
+        delete text;
+    }
+    HashTable(const HashTable&) = delete;
+    HashTable(const HashTable&&) = delete;
+    HashTable& operator= (const HashTable&) = delete;
+    HashTable& operator= (const HashTable&&) = delete;
+private:
+    struct Node {
+        T key;
+        Node(T key) : key(std::move(key)) {}
+    };
+    Node* text;
+    int size;
+    int power;
+    const double loadFactor;
+    std::vector<Node*> table;
+    Hash hash;
+    Equality equals;
+    inline int quadratic_probing(const int hash, const int i) const;
+    void Grow();
+};
+
+//Проверка на наличие
+template<class T, class Hash, class Equality>
+bool HashTable<T, Hash, Equality>::Has(const T& key) {
+    int hash = this->hash(key, power);
+    for (int i = 0; i < power; ++i) {
+        hash = quadratic_probing(hash, i);
+        if (table[hash] == nullptr) return false;
+        if (table[hash] != text && equals(table[hash]->key, key)) return true;
+    }
+    return false;
 }
 
-void Tree::Add(int key) {
-    if (!root) {
-        root = new Node(key);
-        return;
+//Добавление элемента
+template<class T, class Hash, class Equality>
+bool HashTable<T, Hash, Equality>::Add(const T& key) {
+    int hash = this->hash(key, power);
+    int placeToInsert = 0;
+    for (int i = 0; i < power; ++i) {
+        hash = quadratic_probing(hash, i);
+        if (table[hash] == nullptr) {
+            placeToInsert = hash;
+            break;
+        }
+        if (table[hash] == text) {
+            placeToInsert = hash;
+        } else if (equals(table[hash]->key, key)) {
+            return false;
+        }
     }
-    Node* current = root;
-    while (true) {
-        if (current->Data > key) {
-            // Идем в Left
-            if (current->Left != nullptr)
-                current = current->Left;
-            else {
-                current->Left = new Node(key, current);
-                break;
+    table[placeToInsert] =  new Node(key);
+    ++size;
+    if (size > power * loadFactor) Grow();
+    return true;
+}
+
+//Увеличение таблицы
+template<class T, class Hash, class Equality>
+void HashTable<T, Hash, Equality>::Grow() {
+    std::vector<Node*> oldTable = std::move(table);
+    power *= 2;
+    table = std::vector<Node*>(power, nullptr);
+    for (Node* e : oldTable) {
+        if (e != nullptr && e != text) {
+            int hash = this->hash(e->key, power);
+            for (int i = 0; table[hash] != nullptr && i < power; ++i) {
+                hash = quadratic_probing(hash, i);
             }
-        } else {
-            // Идем в Right
-            if (current->Right != nullptr)
-                current = current->Right;
-            else {
-                current->Right = new Node(key, current);
-                break;
-            }
+            table[hash] = e;
         }
     }
 }
 
-bool Tree::Remove(int key) {
-    Node* current = root;
-    while (current) {
-        if (current->Data < key) current = current->Right;
-        else if (current->Data > key) current = current->Left;
-        else break;
-    }
-    if (!current) return false;
-
-    if (!current->Right && !current->Left) {
-        if (current == root)
-            root = nullptr;
-        else if (current->Parent->Left == current)
-            current->Parent->Left = nullptr;
-        else
-            current->Parent->Right = nullptr;
-    } else if (current->Right && !current->Left) {
-        if (current == root)
-            root = current->Right;
-        else if (current->Parent->Left == current)
-            current->Parent->Left = current->Right;
-        else
-            current->Parent->Right = current->Right;
-        current->Right->Parent = current->Parent;
-    } else if (!current->Right && current->Left) {
-        if (current == root)
-            root = current->Left;
-        if (current->Parent->Left == current)
-            current->Parent->Left = current->Left;
-        else
-            current->Parent->Right = current->Left;
-        current->Left->Parent = current->Parent;
-    }
-    current->Left = nullptr;
-    current->Right = nullptr;
-    delete current;
-    return true;
-}
-
-//Получаем глубину дерева
-int Tree::GetDepth() const {
-    return GetDepth(root);
-}
-
-//Получаем глубину дерева
-int Tree::GetDepth(Node *node) const {
-    if (!node) return 0;
-    return std::max(GetDepth(node->Left), GetDepth(node->Right)) + 1;
-}
-
-void Tree::Print() const {
-    if (root) Print(root, 0);
-}
-
-void Tree::Print(Node* node, int tabs) const {
-    if (node->Right) Print(node->Right, tabs + 1);
-    for (int i = 0; i < tabs; ++i) std::cout << "\t";
-    std::cout << node->Data << std::endl;
-    if (node->Left) Print(node->Left, tabs + 1);
-}
-
-struct TreapNode {
-    int Key;
-    int Priority;
-    TreapNode* Left = nullptr;
-    TreapNode* Right = nullptr;
-
-    TreapNode(int key, int priority) : Key(key), Priority(priority) {}
-};
-
-class Treap {
-public:
-    void Add(int key, int prioryty);
-    void Print() const { if (root) Print(root, 0); }
-    int GetDepth() const;
-
-private:
-    TreapNode* root = nullptr;
-    std::pair<TreapNode*, TreapNode*> Split(int key, TreapNode* node);
-    TreapNode* Merge(TreapNode* t1, TreapNode* t2);
-
-    int GetDepth(TreapNode* node) const;
-    void Print(TreapNode* node, int tabs) const;
-};
-
-//Сплит дерева
-std::pair<TreapNode*, TreapNode*> Treap::Split(int key, TreapNode* node) {
-    if (!node) return {nullptr, nullptr};
-    if (node->Key < key) {
-        auto [t1, t2] = Split(key, node->Right);
-        node->Right = t1;
-        return {node, t2};
-    } else {
-        auto [t1, t2] = Split(key, node->Left);
-        node->Left = t2;
-        return {t1, node};
+//Удаление элемента
+template<class T, class Hash, class Equality>
+bool HashTable<T, Hash, Equality>::Del(const T& key) {
+    int hash = this->hash(key, power);
+    for (int i = 0; i < power; ++i) {
+        hash = quadratic_probing(hash, i);
+        if (table[hash] == nullptr) return false;
+        if (table[hash] != text && equals(table[hash]->key, key)) {
+            delete table[hash];
+            table[hash] = text;
+            --size;
+            return true;
+        }
     }
 }
 
-//Функция слияния
-TreapNode* Treap::Merge(TreapNode* left, TreapNode* right) {
-    if (left == nullptr || right == nullptr) {
-        return left == nullptr ? right : left;
-    }
-    if (left->Priority > right->Priority) {
-        left->Right = Merge(left->Right, right);
-        return left;
-    } else {
-        right->Left = Merge(left, right->Left);
-        return right;
-    }
-}
-
-//Добавляем и устанавливаем, исходя из приоритета
-void Treap::Add(int key, int prioryty) {
-    auto [t1, t2] = Split(key, root);
-    int r = prioryty;
-    TreapNode* new_node = new TreapNode(key, r);
-    t1 = Merge(t1, new_node);
-    root = Merge(t1, t2);
-}
-
-//Получаем глубину дерева
-int Treap::GetDepth() const {
-    return GetDepth(root);
-}
-
-//Получаем глубину дерева
-int Treap::GetDepth(TreapNode *node) const {
-    if (!node) return 0;
-    return std::max(GetDepth(node->Left), GetDepth(node->Right)) + 1;
-}
-
-void Treap::Print(TreapNode* node, int tabs) const {
-    if (node->Right) Print(node->Right, tabs + 1);
-    for (int i = 0; i < tabs; ++i) std::cout << "\t";
-    std::cout << node->Key << std::endl;
-    if (node->Left) Print(node->Left, tabs + 1);
+//Квадратичное пробирование
+template<class T, class Hash, class Equality>
+inline int HashTable<T, Hash, Equality>::quadratic_probing(int hashPrev, int i) const {
+    return (hashPrev + i) % power;
 }
 
 int main() {
-    Treap treap;
-    Tree tree;
-    int n = 0, a = 0, b = 0;
-    std::cin >> n;
-    for(int i = 0; i < n; i++){
-        std::cin >> a >> b;
-        tree.Add(a);
-        treap.Add(a, b);
+    HashTable<std::string, String_Hash> table;
+    char command = ' ';
+    std::string value;
+    while (std::cin >> command >> value) {
+        if (command == '?') std::cout << (table.Has(value) ? "OK" : "FAIL") << std::endl;
+        else if (command == '+') std::cout << (table.Add(value) ? "OK" : "FAIL") << std::endl;
+        else if (command == '-') std::cout << (table.Del(value) ? "OK" : "FAIL") << std::endl;
     }
-
-    std::cout << abs(tree.GetDepth() - treap.GetDepth());
     return 0;
 }
