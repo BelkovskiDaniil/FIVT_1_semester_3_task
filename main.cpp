@@ -37,7 +37,6 @@ public:
     ~Tree();
     void Add(int key);
     // Возвращает true, если успешно удалили
-    bool Remove(int key);
     int GetDepth() const;
     void Print() const;
 
@@ -77,45 +76,6 @@ void Tree::Add(int key) {
             }
         }
     }
-}
-
-bool Tree::Remove(int key) {
-    Node* current = root;
-    while (current) {
-        if (current->Data < key) current = current->Right;
-        else if (current->Data > key) current = current->Left;
-        else break;
-    }
-    if (!current) return false;
-
-    if (!current->Right && !current->Left) {
-        if (current == root)
-            root = nullptr;
-        else if (current->Parent->Left == current)
-            current->Parent->Left = nullptr;
-        else
-            current->Parent->Right = nullptr;
-    } else if (current->Right && !current->Left) {
-        if (current == root)
-            root = current->Right;
-        else if (current->Parent->Left == current)
-            current->Parent->Left = current->Right;
-        else
-            current->Parent->Right = current->Right;
-        current->Right->Parent = current->Parent;
-    } else if (!current->Right && current->Left) {
-        if (current == root)
-            root = current->Left;
-        if (current->Parent->Left == current)
-            current->Parent->Left = current->Left;
-        else
-            current->Parent->Right = current->Left;
-        current->Left->Parent = current->Parent;
-    }
-    current->Left = nullptr;
-    current->Right = nullptr;
-    delete current;
-    return true;
 }
 
 //Получаем глубину дерева
