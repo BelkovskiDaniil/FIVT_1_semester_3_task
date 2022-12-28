@@ -3,7 +3,7 @@
  * Т.е., при добавлении очередного числа K в дерево с корнем root, если root→Key ≤ K,
  * то узел K добавляется в правое поддерево root; иначе в левое поддерево root.
  * Выведите элементы в порядке pre-order (сверху вниз).
- * Рекурсия запрещена. */
+ * Рекурсия запрещена.*/
 
 //https://contest.yandex.ru/contest/43508/run-report/80023763/
 
@@ -23,8 +23,33 @@ struct Node {
 };
 
 Node::~Node() {
-    delete Left;
-    delete Right;
+    int last_operation = 0;
+    Node* local = this;
+    Node* reserve = nullptr;
+    while (true) {
+        if (local->Left) {
+            local = local->Left;
+        }
+        else if (local->Right) {
+            local = local->Right;
+        }
+        else {
+            if (local->Parent) {
+                if (local->Parent->Left == local) last_operation = 0;
+                else last_operation = 1;
+                reserve = local->Parent;
+                local->Data = 0;
+                local->Parent = nullptr;
+                local = reserve;
+                if (last_operation == 0) local->Left = nullptr;
+                else if(last_operation == 1) local->Right = nullptr;
+            }
+            else {
+                Data = 0;
+                break;
+            }
+        }
+    }
 }
 
 class Tree {
@@ -39,6 +64,7 @@ private:
 
 Tree::~Tree() {
     delete root;
+    root = nullptr;
 }
 
 void Tree::add(int key) {
@@ -97,7 +123,7 @@ std::deque<int> Tree::pre_order() {
             }
         }
 
-        //Затем правую
+            //Затем правую
         else if (!queue_local_right.empty()) {
             Node * node = queue_local_right.front();
             queue_local_right.pop_front();
