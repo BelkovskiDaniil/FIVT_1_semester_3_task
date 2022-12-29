@@ -5,7 +5,7 @@
  * Выведите элементы в порядке pre-order (сверху вниз).
  * Рекурсия запрещена.*/
 
-//https://contest.yandex.ru/contest/43508/run-report/80023763/
+//https://contest.yandex.ru/contest/43508/run-report/80143367/
 
 #include <iostream>
 #include <vector>
@@ -38,14 +38,12 @@ Node::~Node() {
                 if (local->Parent->Left == local) last_operation = 0;
                 else last_operation = 1;
                 reserve = local->Parent;
-                local->Data = 0;
                 local->Parent = nullptr;
                 local = reserve;
                 if (last_operation == 0) local->Left = nullptr;
                 else if(last_operation == 1) local->Right = nullptr;
             }
             else {
-                Data = 0;
                 break;
             }
         }
@@ -163,6 +161,7 @@ int main() {
     }
 
     std::cout << std::endl;
+    //tree.~Tree();
 
     return 0;
 }
