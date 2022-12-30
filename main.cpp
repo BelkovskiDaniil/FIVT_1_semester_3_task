@@ -161,7 +161,7 @@ int main() {
     }
 
     std::cout << std::endl;
-    //tree.~Tree();
+    tree.Tree::~Tree();
 
     return 0;
 }
